@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# dependencies and builds
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+
+# python
+__pycache__/
+.venv/
+venv/
+
+# local Claude settings (personal, not shared)
+.claude/settings.local.json

@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Problem Log</title>
+  <style>
+    * { box-sizing: border-box; }
+    /* Status colors: shared by the card pills and the filter swatches */
+    :root {
+      --status-open: #2563eb;        /* blue */
+      --status-in-progress: #c2410c; /* orange */
+      --status-solved: #15803d;      /* green */
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: #f5f6f8;
+      color: #1d2330;
+      line-height: 1.5;
+    }
+    main { max-width: 640px; margin: 0 auto; padding: 32px 16px; }
+    h1 { margin: 0 0 20px; font-size: 1.6rem; }
+
+    form, .problem {
+      background: #fff;
+      border: 1px solid #e2e5ea;
+      border-radius: 10px;
+      padding: 16px;
+    }
+    form { display: grid; gap: 10px; margin-bottom: 28px; }
+    label { font-weight: 600; font-size: 0.9rem; }
+    input, textarea {
+      width: 100%;
+      padding: 8px 10px;
+      font: inherit;
+      border: 1px solid #cfd4dc;
+      border-radius: 6px;
+    }
+    textarea { min-height: 80px; resize: vertical; }
+    input:focus, textarea:focus { outline: 2px solid #4f46e5; outline-offset: 1px; }
+    button {
+      justify-self: start;
+      padding: 8px 16px;
+      font: inherit;
+      font-weight: 600;
+      color: #fff;
+      background: #4f46e5;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover { background: #4338ca; }
+
+    #list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    .problem h3 { margin: 0 0 4px; font-size: 1.05rem; }
+    .problem p { margin: 0 0 8px; white-space: pre-wrap; }
+    .problem time { display: block; font-size: 0.85rem; color: #4b5563; cursor: help; }
+    .empty { color: #6b7280; text-align: center; }
+    .filters { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .search { flex: 1; background: #fff; }
+    .swatches { display: flex; gap: 8px; }
+    .swatch {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px #cfd4dc;
+      transition: opacity 0.15s, box-shadow 0.15s;
+    }
+    .swatch[data-status="open"]        { background: var(--status-open); }
+    .swatch[data-status="in-progress"] { background: var(--status-in-progress); }
+    .swatch[data-status="solved"]      { background: var(--status-solved); }
+    .swatch:hover { background-image: linear-gradient(rgba(0,0,0,.12), rgba(0,0,0,.12)); }
+    .swatch:focus-visible { outline: 2px solid #4f46e5; outline-offset: 3px; }
+    .swatches.filtering .swatch { opacity: 0.35; }
+    .swatches.filtering .swatch[aria-pressed="true"] { opacity: 1; box-shadow: 0 0 0 2px #1d2330; }
+
+    select {
+      padding: 8px 10px;
+      font: inherit;
+      border: 1px solid #cfd4dc;
+      border-radius: 6px;
+      background: #fff;
+    }
+    .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+    .pill {
+      padding: 2px 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 999px;
+      border-color: transparent;
+      cursor: pointer;
+    }
+    .freq[data-value="daily"]   { background: #fee2e2; color: #991b1b; }
+    .freq[data-value="weekly"]  { background: #ffedd5; color: #9a3412; }
+    .freq[data-value="monthly"] { background: #fef9c3; color: #854d0e; }
+    .freq[data-value="rarely"]  { background: #e0f2fe; color: #075985; }
+    .sev[data-value="low"]      { background: #ecfdf5; color: #065f46; }
+    .sev[data-value="medium"]   { background: #fef3c7; color: #92400e; }
+    .sev[data-value="high"]     { background: #ffedd5; color: #c2410c; }
+    .sev[data-value="critical"] { background: #dc2626; color: #ffffff; }
+    .status[data-value="open"]        { background: var(--status-open); color: #fff; }
+    .status[data-value="in-progress"] { background: var(--status-in-progress); color: #fff; }
+    .status[data-value="solved"]      { background: var(--status-solved); color: #fff; }
+    .pill[data-value=""]        { background: #f3f4f6; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Problem Log</h1>
+
+    <form id="form">
+      <label for="title">Title</label>
+      <input id="title" required maxlength="120" placeholder="What's the problem?">
+
+      <label for="description">Description</label>
+      <textarea id="description" placeholder="Details, context, when it happened…"></textarea>
+
+      <label for="frequency">How often does it happen?</label>
+      <select id="frequency" required>
+        <option value="" disabled selected>Choose frequency…</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+        <option value="rarely">Rarely</option>
+      </select>
+
+      <label for="severity">How bad is it?</label>
+      <select id="severity" required>
+        <option value="" disabled selected>Choose severity…</option>
+        <option value="low">Low – minor annoyance</option>
+        <option value="medium">Medium – slows me down</option>
+        <option value="high">High – blocks something important</option>
+        <option value="critical">Critical – stops me completely</option>
+      </select>
+
+      <button type="submit">Add problem</button>
+    </form>
+
+    <h2>Problems (<span id="count">0</span>)</h2>
+    <div class="filters">
+      <input id="search" type="search" class="search" placeholder="Search by title…"
+             aria-label="Search problems by title" autocomplete="off">
+      <div id="status-filter" class="swatches" role="group" aria-label="Filter by status">
+        <button type="button" class="swatch" data-status="open"
+                aria-pressed="false" aria-label="Show open only" title="Show open only"></button>
+        <button type="button" class="swatch" data-status="in-progress"
+                aria-pressed="false" aria-label="Show in progress only" title="Show in progress only"></button>
+        <button type="button" class="swatch" data-status="solved"
+                aria-pressed="false" aria-label="Show solved only" title="Show solved only"></button>
+      </div>
+    </div>
+    <ul id="list"></ul>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'problemLog.simple.v1';
+
+    const form = document.getElementById('form');
+    const titleInput = document.getElementById('title');
+    const descInput = document.getElementById('description');
+    const freqInput = document.getElementById('frequency');
+    const sevInput = document.getElementById('severity');
+
+    const FREQUENCIES = [
+      ['daily', 'Daily'],
+      ['weekly', 'Weekly'],
+      ['monthly', 'Monthly'],
+      ['rarely', 'Rarely'],
+    ];
+
+    const SEVERITIES = [
+      ['low', 'Low'],
+      ['medium', 'Medium'],
+      ['high', 'High'],
+      ['critical', 'Critical'],
+    ];
+
+    const STATUSES = [
+      ['open', 'Open'],
+      ['in-progress', 'In progress'],
+      ['solved', 'Solved'],
+    ];
+    const list = document.getElementById('list');
+    const count = document.getElementById('count');
+    const searchInput = document.getElementById('search');
+    const statusFilterGroup = document.getElementById('status-filter');
+
+    let problems = load();
+    let statusFilter = 'all'; // 'all' or one of the STATUSES values
+
+    // Lowercase and strip accents so "cafe" matches "Café"
+    function normalize(text) {
+      return text.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+    }
+
+    function matchesSearch(p, query) {
+      return normalize(p.title).includes(query);
+    }
+
+    function load() {
+      try {
+        const data = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (!Array.isArray(data)) return [];
+        // Migration: entries saved before statuses existed start as "open"
+        return data.map((p) => ({ ...p, status: p.status || 'open' }));
+      } catch {
+        return [];
+      }
+    }
+
+    function save() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(problems));
+    }
+
+    // e.g. "Mon, Nov 16, 7:12 PM"
+    function formatDate(iso) {
+      return new Date(iso).toLocaleString(undefined, {
+        weekday: 'short', month: 'short', day: 'numeric',
+        hour: 'numeric', minute: '2-digit',
+      });
+    }
+
+    // e.g. "just now", "5 min ago", "3 hr ago", "2 days ago"
+    function timeAgo(iso) {
+      const sec = Math.round((Date.now() - new Date(iso)) / 1000);
+      if (sec < 60) return 'just now';
+      const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto', style: 'short' });
+      if (sec < 3600) return rtf.format(-Math.floor(sec / 60), 'minute');
+      if (sec < 86400) return rtf.format(-Math.floor(sec / 3600), 'hour');
+      return rtf.format(-Math.floor(sec / 86400), 'day');
+    }
+
+    function timeLabel(iso) {
+      return `Captured ${formatDate(iso)} · ${timeAgo(iso)}`;
+    }
+
+    // Inline dropdown on each card so a rating can be set or changed later
+    function ratingSelect(p, field, options, className, name, onChange) {
+      const sel = document.createElement('select');
+      sel.className = `pill ${className}`;
+      sel.setAttribute('aria-label', `${name} for ${p.title}`);
+
+      const unrated = new Option(`${name}: not rated`, '');
+      unrated.disabled = true;
+      sel.add(unrated);
+      for (const [value, label] of options) sel.add(new Option(label, value));
+
+      sel.value = p[field] || '';
+      sel.dataset.value = sel.value;
+      sel.title = name;
+
+      sel.addEventListener('change', () => {
+        p[field] = sel.value;
+        sel.dataset.value = sel.value;
+        save();
+        if (onChange) onChange();
+      });
+      return sel;
+    }
+
+    function render() {
+      list.replaceChildren();
+
+      const query = normalize(searchInput.value.trim());
+      const visible = problems.filter((p) =>
+        (!query || matchesSearch(p, query)) &&
+        (statusFilter === 'all' || p.status === statusFilter));
+      count.textContent = query || statusFilter !== 'all'
+        ? `${visible.length} of ${problems.length}`
+        : problems.length;
+
+      if (visible.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'empty';
+        li.textContent = problems.length === 0
+          ? 'No problems logged yet.'
+          : 'No problems match these filters.';
+        list.append(li);
+        return;
+      }
+
+      // Newest first
+      for (const p of [...visible].reverse()) {
+        const li = document.createElement('li');
+        li.className = 'problem';
+
+        const h3 = document.createElement('h3');
+        h3.textContent = p.title;
+        li.append(h3);
+
+        if (p.description) {
+          const desc = document.createElement('p');
+          desc.textContent = p.description;
+          li.append(desc);
+        }
+
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        meta.append(
+          // Re-render only while filtering, so a card that no longer matches drops out
+          ratingSelect(p, 'status', STATUSES, 'status', 'Status',
+            () => { if (statusFilter !== 'all') render(); }),
+          ratingSelect(p, 'severity', SEVERITIES, 'sev', 'Severity'),
+          ratingSelect(p, 'frequency', FREQUENCIES, 'freq', 'Frequency'),
+        );
+
+        const time = document.createElement('time');
+        time.dateTime = p.createdAt;
+        time.title = new Date(p.createdAt).toString();
+        time.textContent = timeLabel(p.createdAt);
+        meta.append(time);
+
+        li.append(meta);
+
+        list.append(li);
+      }
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const title = titleInput.value.trim();
+      if (!title) return;
+
+      problems.push({
+        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
+        title,
+        description: descInput.value.trim(),
+        frequency: freqInput.value,
+        severity: sevInput.value,
+        status: 'open',
+        createdAt: new Date().toISOString(),
+      });
+      save();
+      render();
+      form.reset();
+      titleInput.focus();
+    });
+
+    searchInput.addEventListener('input', render);
+
+    // Color swatches: click one to show only that status, click it again to show all
+    statusFilterGroup.addEventListener('click', (e) => {
+      const swatch = e.target.closest('.swatch');
+      if (!swatch) return;
+      statusFilter = statusFilter === swatch.dataset.status ? 'all' : swatch.dataset.status;
+      for (const s of statusFilterGroup.querySelectorAll('.swatch')) {
+        s.setAttribute('aria-pressed', String(s.dataset.status === statusFilter));
+      }
+      statusFilterGroup.classList.toggle('filtering', statusFilter !== 'all');
+      render();
+    });
+
+    render();
+    // Keep the "x min ago" labels fresh while the page stays open
+    // (only the text changes, so open dropdowns aren't disturbed)
+    setInterval(() => {
+      for (const t of list.querySelectorAll('time')) t.textContent = timeLabel(t.dateTime);
+    }, 60 * 1000);
+  </script>
+</body>
+</html>
