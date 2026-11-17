@@ -1,4 +1,4 @@
-# Problem Log (simple-problem-tracker)
+# Problem Tracker (simple-problem-tracker)
 
 ## Overview
 
